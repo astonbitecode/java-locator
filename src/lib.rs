@@ -140,6 +140,19 @@ fn is_unix() -> bool {
     &*TARGET_OS == UNIX
 }
 
+/// Returns the name of the jvm dynamic library:
+///
+/// * libjvm.so for Linux / Macos
+///
+/// * jvm.dll for Windows
+pub fn get_jvm_dyn_lib_file_name() -> &'static str {
+    if is_windows() {
+        "jvm.dll"
+    } else {
+        "libjvm.so"
+    }
+}
+
 /// Returns the Java home path.
 ///
 /// If `JAVA_HOME` env var is defined, the function returns it without any checks whether the var points to a valid directory or not.
