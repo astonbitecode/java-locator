@@ -12,11 +12,14 @@ edition = "2018"
 [lib]
 name = "java_locator"
 path = "src/lib.rs"
+crate-type = ["rlib"]
 
 [[bin]]
 name = "java-locator"
 path = "src/main.rs"
+doc = false
 
 [dependencies]
 glob = "0.2"
 lazy_static = "1.2"
+docopt = "1.0"

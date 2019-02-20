@@ -11,31 +11,35 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::env;
+use docopt::Docopt;
 
 use java_locator;
 
+const USAGE: &'static str = "
+java-locator locates the active Java installation in the host.
+
+Usage:
+  java-locator
+  java-locator (-j | --jvmlib)
+  java-locator (-d | --file) <name>
+  java-locator (-h | --help)
+
+Options:
+  -h --help     Show this screen.
+";
+
 fn main() -> java_locator::errors::Result<()> {
-    let args: Vec<String> = env::args().into_iter()
-        .skip(1)
-        .collect();
+    let args = Docopt::new(USAGE)
+        .and_then(|dopt| dopt.parse())
+        .unwrap_or_else(|e| e.exit());
 
-    let invalid_args: Vec<String> = args.iter()
-        .filter(|arg| !is_valid_argument(&arg))
-        .map(|s| s.to_string())
-        .collect();
-
-    if !invalid_args.is_empty() {
-        panic!("Unknown arguments: {}", invalid_args.join(","));
-    }
-
-    if args.is_empty() {
-        java_locator::locate_java_home().map(|s| println!("{}", s))
+    if args.find("--jvmlib").unwrap().as_bool() || args.find("-j").unwrap().as_bool() {
+        java_locator::locate_jvm_dyn_library().map(|s| println!("{}", s))?;
+    } else if args.find("--file").unwrap().as_bool() || args.find("-f").unwrap().as_bool() {
+        java_locator::locate_file(args.get_str("<name>")).map(|s| println!("{}", s))?;
     } else {
-        java_locator::locate_jvm_dyn_library().map(|s| println!("{}", s))
+        java_locator::locate_java_home().map(|s| println!("{}", s))?;
     }
-}
 
-fn is_valid_argument(arg: &str) -> bool {
-    arg == "--dynlib" || arg == "-d"
+    Ok(())
 }

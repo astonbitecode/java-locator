@@ -12,56 +12,80 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # java-locator
-//!
-//! This is a small utility written in [Rust](https://www.rust-lang.org/).
-//!
-//! It locates the active Java installation in the host.
-//!
-//! ## Usage
-//!
-//! The utility can be used as a library, or as an executable:
-//!
-//! ### Library
-//!
-//! ```rust
-//! extern crate java_locator;
-//!
-//! fn main() -> java_locator::errors::Result<()> {
-//!     let java_home = java_locator::locate_java_home()?;
-//!     let dyn_lib_path = java_locator::locate_jvm_dyn_library()?;
-//!
-//!     println!("The java home is {}", java_home);
-//!     println!("The jvm dynamic library path is {}", dyn_lib_path);
-//!
-//!     Ok(())
-//! }
-//! ```
-//!
-//! ### Executable
-//!
-//! Having rust [installed](https://www.rust-lang.org/tools/install), you may install the utility using cargo:
-//!
-//! `cargo install java_locator`
-//!
-//! And then, issuing
-//!
-//! `java-locator`
-//!
-//! you should have an output like:
-//!
-//! > /usr/lib/jvm/java-11-openjdk-amd64
-//!
-//! You may also retrieve the location of the `jvm` shared library:
-//!
-//! `java-locator --dynlib`
-//!
-//! should give an output like:
-//!
-//! > /usr/lib/jvm/java-11-openjdk-amd64/lib/server
-//!
-//! The latter may be used in cases when the `LD_LIBRARY_PATH` (or `PATH` in windows) should be populated.
-//!
+/*!
+
+# java-locator
+
+This is a small utility written in [Rust](https://www.rust-lang.org/).
+
+It locates the active Java installation in the host.
+
+## Usage
+
+The utility can be used as a library, or as an executable:
+
+### Library
+
+```rust
+extern crate java_locator;
+
+fn main() -> java_locator::errors::Result<()> {
+    let java_home = java_locator::locate_java_home()?;
+    let dyn_lib_path = java_locator::locate_jvm_dyn_library()?;
+    let libjsig  = java_locator::locate_file("libjsig.so")?;
+
+    println!("The java home is {}", java_home);
+    println!("The jvm dynamic library path is {}", dyn_lib_path);
+    println!("The file libjsig.so is located in {}", libjsig);
+
+    Ok(())
+}
+```
+
+### Executable
+
+Having rust [installed](https://www.rust-lang.org/tools/install), you may install the utility using cargo:
+
+`cargo install java_locator`
+
+And then, issuing
+
+`java-locator`
+
+you should have an output like:
+
+> /usr/lib/jvm/java-11-openjdk-amd64
+
+You may retrieve the location of the `jvm` shared library:
+
+`java-locator --jvmlib`
+
+should give an output like:
+
+> /usr/lib/jvm/java-11-openjdk-amd64/lib/server
+
+This may be used in cases when the `LD_LIBRARY_PATH` (or `PATH` in windows) should be populated.
+
+You may also retrieve the location of any file inside the Java installation:
+
+`java-locator --file libjsig.so`
+
+and you can even use wildcards:
+
+`java-locator --file libjsig*`
+
+The latter two commands should return something like:
+
+> /usr/lib/jvm/java-11-openjdk-amd64/lib
+
+## Licence
+
+At your option, under:
+
+* Apache License, Version 2.0, (http://www.apache.org/licenses/LICENSE-2.0)
+* MIT license (http://opensource.org/licenses/MIT)
+
+*/
 
 use std::env;
 use std::error::Error;
@@ -73,10 +97,10 @@ use lazy_static::lazy_static;
 
 pub mod errors;
 
-pub const WINDOWS: &'static str = "windows";
-pub const MACOS: &'static str = "macos";
-pub const ANDROID: &'static str = "android";
-pub const UNIX: &'static str = "unix";
+const WINDOWS: &'static str = "windows";
+const MACOS: &'static str = "macos";
+const ANDROID: &'static str = "android";
+const UNIX: &'static str = "unix";
 
 lazy_static! {
     static ref TARGET_OS: String = {
@@ -124,16 +148,16 @@ fn is_unix() -> bool {
 pub fn locate_java_home() -> errors::Result<String> {
     match &env::var("JAVA_HOME") {
         Ok(s) if s.is_empty() => {
-            try_locate_java_home()
+            do_locate_java_home()
         }
         Ok(java_home_env_var) => Ok(java_home_env_var.clone()),
         Err(_) => {
-            try_locate_java_home()
+            do_locate_java_home()
         }
     }
 }
 
-fn try_locate_java_home() -> errors::Result<String> {
+fn do_locate_java_home() -> errors::Result<String> {
     // Prepare the command depending on the host
     let command_str = if is_windows() {
         "where"
@@ -186,10 +210,17 @@ pub fn locate_jvm_dyn_library() -> errors::Result<String> {
         "libjvm.*"
     };
 
+    locate_file(jvm_dyn_lib_file_name)
+}
+
+/// Returns the path that contains the file with the provided name.
+///
+/// This function argument can be a wildcard.
+pub fn locate_file(file_name: &str) -> errors::Result<String> {
     // Find the JAVA_HOME
     let java_home = locate_java_home()?;
 
-    let query = format!("{}/**/{}", java_home, jvm_dyn_lib_file_name);
+    let query = format!("{}/**/{}", java_home, file_name);
 
     let paths_vec: Vec<String> = glob(&query)?
         .filter_map(Result::ok)
@@ -202,13 +233,9 @@ pub fn locate_jvm_dyn_library() -> errors::Result<String> {
         .collect();
 
     if paths_vec.is_empty() {
-        let name = if is_windows() {
-            "jvm.lib"
-        } else {
-            "libjvm"
-        };
-        Err(errors::JavaLocatorError::new(&format!("Could not find the {} in any subdirectory of {}", name, java_home)))
+        Err(errors::JavaLocatorError::new(&format!("Could not find the {} library in any subdirectory of {}", file_name, java_home)))
     } else {
         Ok(paths_vec[0].clone())
     }
 }
+
