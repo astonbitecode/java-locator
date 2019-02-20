@@ -1,0 +1,22 @@
+[package]
+name = "java-locator"
+version = "0.1.0"
+authors = ["aston <astonbitecode@gmail.com>"]
+description = "Locates a Java installation in the host."
+keywords = ["java", "jni"]
+license = "MIT/Apache-2.0"
+repository = "https://github.com/astonbitecode/java-locator"
+readme = "README.md"
+edition = "2018"
+
+[lib]
+name = "java_locator"
+path = "src/lib.rs"
+
+[[bin]]
+name = "java-locator"
+path = "src/main.rs"
+
+[dependencies]
+glob = "0.2"
+lazy_static = "1.2"
