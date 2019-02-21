@@ -78,7 +78,7 @@ The latter two commands should return something like:
 
 > /usr/lib/jvm/java-11-openjdk-amd64/lib
 
-## Licence
+## License
 
 At your option, under:
 
