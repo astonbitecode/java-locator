@@ -21,7 +21,7 @@ java-locator locates the active Java installation in the host.
 Usage:
   java-locator
   java-locator (-j | --jvmlib)
-  java-locator (-d | --file) <name>
+  java-locator (-f | --file) <name>
   java-locator (-h | --help)
 
 Options:
