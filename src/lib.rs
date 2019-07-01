@@ -108,9 +108,9 @@ lazy_static! {
         let tos = target_os_res.as_ref().map(|x| &**x).unwrap_or_else(|_| {
             if cfg!(windows) {
                 WINDOWS
-            } else if cfg!(macos) {
+            } else if cfg!(target_os = "macos") {
                 MACOS
-            } else if cfg!(android) {
+            } else if cfg!(target_os = "android") {
                 ANDROID
             } else {
                 UNIX
@@ -174,6 +174,7 @@ fn do_locate_java_home() -> errors::Result<String> {
     let command_str = if is_windows() {
         "where"
     } else if is_macos() {
+        println!("IN MACOS");
         "/usr/libexec/java_home"
     } else {
         "which"
