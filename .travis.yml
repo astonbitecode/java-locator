@@ -1,0 +1,20 @@
+dist: trusty
+language: java
+
+rust:
+  - stable
+
+matrix:
+  include:
+    - os: osx
+      osx_image: xcode10.2
+      script:
+        - cargo test --lib -- --nocapture
+    - os: linux
+      jdk: openjdk11
+      script:
+        - cargo test --lib -- --nocapture
+
+before_install:
+  - curl https://sh.rustup.rs -sSf | sh -s -- -y
+  - source ~/.cargo/env

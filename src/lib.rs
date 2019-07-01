@@ -255,3 +255,13 @@ pub fn locate_file(file_name: &str) -> errors::Result<String> {
     }
 }
 
+#[cfg(test)]
+mod unit_tests {
+    use super::*;
+
+    #[test]
+    fn locate_java_home_test() {
+        println!("locate_java_home: {}", locate_java_home().unwrap());
+        println!("locate_jvm_dyn_library: {}", locate_jvm_dyn_library().unwrap());
+    }
+}
