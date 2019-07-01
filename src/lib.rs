@@ -174,7 +174,6 @@ fn do_locate_java_home() -> errors::Result<String> {
     let command_str = if is_windows() {
         "where"
     } else if is_macos() {
-        println!("IN MACOS");
         "/usr/libexec/java_home"
     } else {
         "which"
