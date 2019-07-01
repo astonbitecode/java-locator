@@ -125,7 +125,6 @@ fn is_windows() -> bool {
     &*TARGET_OS == WINDOWS
 }
 
-#[allow(dead_code)]
 fn is_macos() -> bool {
     &*TARGET_OS == MACOS
 }
@@ -174,13 +173,17 @@ fn do_locate_java_home() -> errors::Result<String> {
     // Prepare the command depending on the host
     let command_str = if is_windows() {
         "where"
+    } else if is_macos() {
+        "/usr/libexec/java_home"
     } else {
         "which"
     };
 
     let mut command = Command::new(command_str);
 
-    command.arg("java");
+    if !is_macos() {
+        command.arg("java");
+    }
 
     let output = command.output().map_err(|error| {
         let message = format!("Command '{}' is not found in the system PATH ({})", command_str, error.description());
