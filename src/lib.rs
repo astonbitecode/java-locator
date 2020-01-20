@@ -141,12 +141,16 @@ fn is_unix() -> bool {
 
 /// Returns the name of the jvm dynamic library:
 ///
-/// * libjvm.so for Linux / Macos
+/// * libjvm.so for Linux
+///
+/// * libjvm.dlyb for Macos
 ///
 /// * jvm.dll for Windows
 pub fn get_jvm_dyn_lib_file_name() -> &'static str {
     if is_windows() {
         "jvm.dll"
+    } else if is_macos() {
+        "libjvm.dylib"
     } else {
         "libjvm.so"
     }
