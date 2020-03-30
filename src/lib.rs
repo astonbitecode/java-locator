@@ -46,7 +46,7 @@ fn main() -> java_locator::errors::Result<()> {
 
 Having rust [installed](https://www.rust-lang.org/tools/install), you may install the utility using cargo:
 
-`cargo install java_locator`
+`cargo install java-locator --features build-binary`
 
 And then, issuing
 
