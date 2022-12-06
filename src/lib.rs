@@ -85,10 +85,9 @@ At your option, under:
 * Apache License, Version 2.0, (http://www.apache.org/licenses/LICENSE-2.0)
 * MIT license (http://opensource.org/licenses/MIT)
 
-*/
+ */
 
 use std::env;
-use std::error::Error;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -190,10 +189,21 @@ fn do_locate_java_home() -> errors::Result<String> {
     }
 
     let output = command.output().map_err(|error| {
-        let message = format!("Command '{}' is not found in the system PATH ({})", command_str, error.description());
+        let message = format!("Command '{}' is not found in the system PATH ({})", command_str, error);
         errors::JavaLocatorError::new(&message)
     })?;
-    let java_exec_path = String::from_utf8(output.stdout)?;
+    let java_exec_path = String::from_utf8(output.stdout)
+        .map(|jp| {
+            let mut lines: Vec<&str> = jp.lines().collect();
+            if lines.len() > 1 {
+                println!("WARNING: java_locator found {} possible java locations: {}. Using the last one.",
+                         lines.len(),
+                         lines.join(", "));
+                lines.remove(lines.len() - 1).to_string()
+            } else {
+                jp
+            }
+        })?;
 
     // Return early in case that the java executable is not found
     if java_exec_path.is_empty() {
