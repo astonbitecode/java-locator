@@ -1,6 +1,6 @@
 # java-locator
 
-[![crates.io](https://img.shields.io/crates/v/java-locator.svg)](https://crates.io/crates/j4rs)
+[![crates.io](https://img.shields.io/crates/v/java-locator.svg)](https://crates.io/crates/java_locator)
 
 This is a small utility written in [Rust](https://www.rust-lang.org/).
 
