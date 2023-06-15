@@ -222,9 +222,11 @@ fn do_locate_java_home() -> errors::Result<String> {
         };
     }
 
-    // Here we should have found ourselves in a directory like /usr/lib/jvm/java-8-oracle/jre/bin/java
-    test_path.pop();
-    test_path.pop();
+    if !is_macos() {
+        // Here we should have found ourselves in a directory like /usr/lib/jvm/java-8-oracle/jre/bin/java
+        test_path.pop();
+        test_path.pop();
+    }
 
     match test_path.to_str() {
         Some(s) => Ok(String::from(s)),
