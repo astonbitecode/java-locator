@@ -1,4 +1,4 @@
-name: j4rs CI
+name: java-locator CI
 
 on:
   push:
