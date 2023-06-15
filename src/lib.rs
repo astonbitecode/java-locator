@@ -278,4 +278,9 @@ mod unit_tests {
         println!("locate_java_home: {}", locate_java_home().unwrap());
         println!("locate_jvm_dyn_library: {}", locate_jvm_dyn_library().unwrap());
     }
+
+    #[test]
+    fn locate_java_from_exec_test() {
+        println!("do_locate_java_home: {}", do_locate_java_home().unwrap());
+    }
 }
