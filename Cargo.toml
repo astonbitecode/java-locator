@@ -13,6 +13,7 @@ edition = "2021"
 name = "java_locator"
 path = "src/lib.rs"
 crate-type = ["rlib"]
+doctest = false
 
 [[bin]]
 name = "java-locator"
