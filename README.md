@@ -1,6 +1,7 @@
 # java-locator
 
 [![crates.io](https://img.shields.io/crates/v/java-locator.svg)](https://crates.io/crates/java_locator)
+![Build](https://github.com/astonbitecode/java-locator/actions/workflows/ci-workflow.yml/badge.svg)
 
 This is a small utility written in [Rust](https://www.rust-lang.org/).
 
