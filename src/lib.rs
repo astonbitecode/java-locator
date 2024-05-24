@@ -162,13 +162,9 @@ pub fn get_jvm_dyn_lib_file_name() -> &'static str {
 /// If `JAVA_HOME` is not defined, the function tries to locate it using the `java` executable.
 pub fn locate_java_home() -> errors::Result<String> {
     match &env::var("JAVA_HOME") {
-        Ok(s) if s.is_empty() => {
-            do_locate_java_home()
-        }
+        Ok(s) if s.is_empty() => do_locate_java_home(),
         Ok(java_home_env_var) => Ok(java_home_env_var.clone()),
-        Err(_) => {
-            do_locate_java_home()
-        }
+        Err(_) => do_locate_java_home(),
     }
 }
 
@@ -189,25 +185,31 @@ fn do_locate_java_home() -> errors::Result<String> {
     }
 
     let output = command.output().map_err(|error| {
-        let message = format!("Command '{}' is not found in the system PATH ({})", command_str, error);
+        let message = format!(
+            "Command '{}' is not found in the system PATH ({})",
+            command_str, error
+        );
         errors::JavaLocatorError::new(&message)
     })?;
-    let java_exec_path = String::from_utf8(output.stdout)
-        .map(|jp| {
-            let mut lines: Vec<&str> = jp.lines().collect();
-            if lines.len() > 1 {
-                println!("WARNING: java_locator found {} possible java locations: {}. Using the last one.",
-                         lines.len(),
-                         lines.join(", "));
-                lines.remove(lines.len() - 1).to_string()
-            } else {
-                jp
-            }
-        })?;
+    let java_exec_path = String::from_utf8(output.stdout).map(|jp| {
+        let mut lines: Vec<&str> = jp.lines().collect();
+        if lines.len() > 1 {
+            println!(
+                "WARNING: java_locator found {} possible java locations: {}. Using the last one.",
+                lines.len(),
+                lines.join(", ")
+            );
+            lines.remove(lines.len() - 1).to_string()
+        } else {
+            jp
+        }
+    })?;
 
     // Return early in case that the java executable is not found
     if java_exec_path.is_empty() {
-        Err(errors::JavaLocatorError::new("Java is not installed or not added in the system PATH"))?
+        Err(errors::JavaLocatorError::new(
+            "Java is not installed or not added in the system PATH",
+        ))?
     }
 
     let mut test_path = PathBuf::from(java_exec_path.trim());
@@ -230,17 +232,16 @@ fn do_locate_java_home() -> errors::Result<String> {
 
     match test_path.to_str() {
         Some(s) => Ok(String::from(s)),
-        None => Err(errors::JavaLocatorError::new(&format!("Could not convert path {:?} to String", test_path))),
+        None => Err(errors::JavaLocatorError::new(&format!(
+            "Could not convert path {:?} to String",
+            test_path
+        ))),
     }
 }
 
 /// Returns the path that contains the `libjvm.so` (or `jvm.dll` in windows).
 pub fn locate_jvm_dyn_library() -> errors::Result<String> {
-    let jvm_dyn_lib_file_name = if is_windows() {
-        "jvm.dll"
-    } else {
-        "libjvm.*"
-    };
+    let jvm_dyn_lib_file_name = if is_windows() { "jvm.dll" } else { "libjvm.*" };
 
     locate_file(jvm_dyn_lib_file_name)
 }
@@ -265,7 +266,10 @@ pub fn locate_file(file_name: &str) -> errors::Result<String> {
         .collect();
 
     if paths_vec.is_empty() {
-        Err(errors::JavaLocatorError::new(&format!("Could not find the {} library in any subdirectory of {}", file_name, java_home)))
+        Err(errors::JavaLocatorError::new(&format!(
+            "Could not find the {} library in any subdirectory of {}",
+            file_name, java_home
+        )))
     } else {
         Ok(paths_vec[0].clone())
     }
@@ -278,7 +282,10 @@ mod unit_tests {
     #[test]
     fn locate_java_home_test() {
         println!("locate_java_home: {}", locate_java_home().unwrap());
-        println!("locate_jvm_dyn_library: {}", locate_jvm_dyn_library().unwrap());
+        println!(
+            "locate_jvm_dyn_library: {}",
+            locate_jvm_dyn_library().unwrap()
+        );
     }
 
     #[test]
