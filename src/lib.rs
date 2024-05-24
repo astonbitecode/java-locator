@@ -91,7 +91,7 @@ use std::env;
 use std::path::PathBuf;
 use std::process::Command;
 
-use glob::glob;
+use glob::{glob, Pattern};
 use lazy_static::lazy_static;
 
 pub mod errors;
@@ -252,7 +252,7 @@ pub fn locate_file(file_name: &str) -> errors::Result<String> {
     // Find the JAVA_HOME
     let java_home = locate_java_home()?;
 
-    let query = format!("{}/**/{}", java_home, file_name);
+    let query = format!("{}/**/{}", Pattern::escape(&java_home), file_name);
 
     let paths_vec: Vec<String> = glob(&query)?
         .filter_map(Result::ok)
