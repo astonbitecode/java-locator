@@ -91,52 +91,10 @@ use std::env;
 use std::path::PathBuf;
 use std::process::Command;
 
+use errors::{JavaLocatorError, Result};
 use glob::{glob, Pattern};
-use lazy_static::lazy_static;
 
 pub mod errors;
-
-const WINDOWS: &'static str = "windows";
-const MACOS: &'static str = "macos";
-const ANDROID: &'static str = "android";
-const UNIX: &'static str = "unix";
-
-lazy_static! {
-    static ref TARGET_OS: String = {
-        let target_os_res = env::var("CARGO_CFG_TARGET_OS");
-        let tos = target_os_res.as_ref().map(|x| &**x).unwrap_or_else(|_| {
-            if cfg!(windows) {
-                WINDOWS
-            } else if cfg!(target_os = "macos") {
-                MACOS
-            } else if cfg!(target_os = "android") {
-                ANDROID
-            } else {
-                UNIX
-            }
-        });
-
-        tos.to_string()
-    };
-}
-
-fn is_windows() -> bool {
-    &*TARGET_OS == WINDOWS
-}
-
-fn is_macos() -> bool {
-    &*TARGET_OS == MACOS
-}
-
-#[allow(dead_code)]
-fn is_android() -> bool {
-    &*TARGET_OS == ANDROID
-}
-
-#[allow(dead_code)]
-fn is_unix() -> bool {
-    &*TARGET_OS == UNIX
-}
 
 /// Returns the name of the jvm dynamic library:
 ///
@@ -146,9 +104,9 @@ fn is_unix() -> bool {
 ///
 /// * jvm.dll for Windows
 pub fn get_jvm_dyn_lib_file_name() -> &'static str {
-    if is_windows() {
+    if cfg!(target_os = "windows") {
         "jvm.dll"
-    } else if is_macos() {
+    } else if cfg!(target_os = "macos") {
         "libjvm.dylib"
     } else {
         "libjvm.so"
@@ -160,7 +118,7 @@ pub fn get_jvm_dyn_lib_file_name() -> &'static str {
 /// If `JAVA_HOME` env var is defined, the function returns it without any checks whether the var points to a valid directory or not.
 ///
 /// If `JAVA_HOME` is not defined, the function tries to locate it using the `java` executable.
-pub fn locate_java_home() -> errors::Result<String> {
+pub fn locate_java_home() -> Result<String> {
     match &env::var("JAVA_HOME") {
         Ok(s) if s.is_empty() => do_locate_java_home(),
         Ok(java_home_env_var) => Ok(java_home_env_var.clone()),
@@ -168,52 +126,94 @@ pub fn locate_java_home() -> errors::Result<String> {
     }
 }
 
-fn do_locate_java_home() -> errors::Result<String> {
-    // Prepare the command depending on the host
-    let command_str = if is_windows() {
-        "where"
-    } else if is_macos() {
-        "/usr/libexec/java_home"
-    } else {
-        "which"
-    };
+#[cfg(target_os = "windows")]
+fn do_locate_java_home() -> Result<String> {
+    let output = Command::new("where")
+        .arg("java")
+        .output()
+        .map_err(|e| JavaLocatorError::new(format!("Failed to run command `where` ({e})")))?;
 
-    let mut command = Command::new(command_str);
+    let java_exec_path = std::str::from_utf8(&output.stdout)?
+        // Windows will return multiple lines if there are multiple `java` in the PATH.
+        .lines()
+        // The first line is the one that would be run, so take just that line.
+        .next()
+        .unwrap()
+        .trim();
 
-    if !is_macos() {
-        command.arg("java");
-    }
-
-    let output = command.output().map_err(|error| {
-        let message = format!(
-            "Command '{}' is not found in the system PATH ({})",
-            command_str, error
-        );
-        errors::JavaLocatorError::new(&message)
-    })?;
-    let java_exec_path = String::from_utf8(output.stdout).map(|jp| {
-        let mut lines: Vec<&str> = jp.lines().collect();
-        if lines.len() > 1 {
-            println!(
-                "WARNING: java_locator found {} possible java locations: {}. Using the last one.",
-                lines.len(),
-                lines.join(", ")
-            );
-            lines.remove(lines.len() - 1).to_string()
-        } else {
-            jp
-        }
-    })?;
-
-    // Return early in case that the java executable is not found
     if java_exec_path.is_empty() {
-        Err(errors::JavaLocatorError::new(
-            "Java is not installed or not added in the system PATH",
-        ))?
+        return Err(JavaLocatorError::new(
+            "Java is not installed or not in the system PATH".into(),
+        ));
     }
 
-    let mut test_path = PathBuf::from(java_exec_path.trim());
+    let mut home_path = follow_symlinks(java_exec_path);
 
+    // Here we should have found ourselves in a directory like /usr/lib/jvm/java-8-oracle/jre/bin/java
+    home_path.pop();
+    home_path.pop();
+
+    home_path
+        .into_os_string()
+        .into_string()
+        .map_err(|path| JavaLocatorError::new(format!("Java path {path:?} is invalid utf8")))
+}
+
+#[cfg(target_os = "macos")]
+fn do_locate_java_home() -> Result<String> {
+    let output = Command::new("/usr/libexec/java_home")
+        .output()
+        .map_err(|e| {
+            JavaLocatorError::new(format!(
+                "Failed to run command `/usr/libexec/java_home` ({e})"
+            ))
+        })?;
+
+    let java_exec_path = std::str::from_utf8(&output.stdout)?.trim();
+
+    if java_exec_path.is_empty() {
+        return Err(JavaLocatorError::new(
+            "Java is not installed or not in the system PATH".into(),
+        ));
+    }
+
+    let home_path = follow_symlinks(java_exec_path);
+
+    home_path
+        .into_os_string()
+        .into_string()
+        .map_err(|path| JavaLocatorError::new(format!("Java path {path:?} is invalid utf8")))
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))] // Unix
+fn do_locate_java_home() -> Result<String> {
+    let output = Command::new("which")
+        .arg("java")
+        .output()
+        .map_err(|e| JavaLocatorError::new(format!("Failed to run command `which` ({e})")))?;
+    let java_exec_path = std::str::from_utf8(&output.stdout)?.trim();
+
+    if java_exec_path.is_empty() {
+        return Err(JavaLocatorError::new(
+            "Java is not installed or not in the system PATH".into(),
+        ));
+    }
+
+    let mut home_path = follow_symlinks(java_exec_path);
+
+    // Here we should have found ourselves in a directory like /usr/lib/jvm/java-8-oracle/jre/bin/java
+    home_path.pop();
+    home_path.pop();
+
+    home_path
+        .into_os_string()
+        .into_string()
+        .map_err(|path| JavaLocatorError::new(format!("Java path {path:?} is invalid utf8")))
+}
+
+// Its not clear to me which systems need this so for now its run on all systems.
+fn follow_symlinks(path: &str) -> PathBuf {
+    let mut test_path = PathBuf::from(path);
     while let Ok(path) = test_path.read_link() {
         test_path = if path.is_absolute() {
             path
@@ -223,55 +223,39 @@ fn do_locate_java_home() -> errors::Result<String> {
             test_path
         };
     }
-
-    if !is_macos() {
-        // Here we should have found ourselves in a directory like /usr/lib/jvm/java-8-oracle/jre/bin/java
-        test_path.pop();
-        test_path.pop();
-    }
-
-    match test_path.to_str() {
-        Some(s) => Ok(String::from(s)),
-        None => Err(errors::JavaLocatorError::new(&format!(
-            "Could not convert path {:?} to String",
-            test_path
-        ))),
-    }
+    test_path
 }
 
 /// Returns the path that contains the `libjvm.so` (or `jvm.dll` in windows).
-pub fn locate_jvm_dyn_library() -> errors::Result<String> {
-    let jvm_dyn_lib_file_name = if is_windows() { "jvm.dll" } else { "libjvm.*" };
-
-    locate_file(jvm_dyn_lib_file_name)
+pub fn locate_jvm_dyn_library() -> Result<String> {
+    if cfg!(target_os = "windows") {
+        locate_file("jvm.dll")
+    } else {
+        locate_file("libjvm.*")
+    }
 }
 
 /// Returns the path that contains the file with the provided name.
 ///
 /// This function argument can be a wildcard.
-pub fn locate_file(file_name: &str) -> errors::Result<String> {
+pub fn locate_file(file_name: &str) -> Result<String> {
     // Find the JAVA_HOME
     let java_home = locate_java_home()?;
 
     let query = format!("{}/**/{}", Pattern::escape(&java_home), file_name);
 
-    let paths_vec: Vec<String> = glob(&query)?
-        .filter_map(Result::ok)
-        .map(|path_buf| {
-            let mut pb = path_buf.clone();
-            pb.pop();
-            pb.to_str().unwrap_or("").to_string()
-        })
-        .filter(|s: &String| !s.is_empty())
-        .collect();
+    let path = glob(&query)?.filter_map(|x| x.ok()).next().ok_or_else(|| {
+        JavaLocatorError::new(format!(
+            "Could not find the {file_name} library in any subdirectory of {java_home}",
+        ))
+    })?;
 
-    if paths_vec.is_empty() {
-        Err(errors::JavaLocatorError::new(&format!(
-            "Could not find the {} library in any subdirectory of {}",
-            file_name, java_home
-        )))
-    } else {
-        Ok(paths_vec[0].clone())
+    let parent_path = path.parent().unwrap();
+    match parent_path.to_str() {
+        Some(parent_path) => Ok(parent_path.to_owned()),
+        None => Err(JavaLocatorError::new(format!(
+            "Java path {parent_path:?} is invalid utf8"
+        ))),
     }
 }
 
