@@ -133,23 +133,24 @@ fn do_locate_java_home() -> Result<String> {
         .output()
         .map_err(|e| JavaLocatorError::new(format!("Failed to run command `where` ({e})")))?;
 
-    let java_exec_path = std::str::from_utf8(&output.stdout)?
-        // Windows will return multiple lines if there are multiple `java` in the PATH.
+    let java_exec_path_raw = std::str::from_utf8(&output.stdout)?;
+    java_exec_path_validation(java_exec_path_raw)?;
+
+    // Windows will return multiple lines if there are multiple `java` in the PATH.
+    let paths_found = java_exec_path_raw.lines().count();
+    if paths_found > 1 {
+        eprintln!("WARNING: java_locator found {paths_found} possible java locations. Using the first one. To silence this warning set JAVA_HOME env var.")
+    }
+
+    let java_exec_path = java_exec_path_raw
         .lines()
         // The first line is the one that would be run, so take just that line.
         .next()
-        .unwrap()
+        .expect("gauranteed to have at least one line by java_exec_path_validation")
         .trim();
-
-    if java_exec_path.is_empty() {
-        return Err(JavaLocatorError::new(
-            "Java is not installed or not in the system PATH".into(),
-        ));
-    }
 
     let mut home_path = follow_symlinks(java_exec_path);
 
-    // Here we should have found ourselves in a directory like /usr/lib/jvm/java-8-oracle/jre/bin/java
     home_path.pop();
     home_path.pop();
 
@@ -171,12 +172,7 @@ fn do_locate_java_home() -> Result<String> {
 
     let java_exec_path = std::str::from_utf8(&output.stdout)?.trim();
 
-    if java_exec_path.is_empty() {
-        return Err(JavaLocatorError::new(
-            "Java is not installed or not in the system PATH".into(),
-        ));
-    }
-
+    java_exec_path_validation(java_exec_path)?;
     let home_path = follow_symlinks(java_exec_path);
 
     home_path
@@ -193,12 +189,7 @@ fn do_locate_java_home() -> Result<String> {
         .map_err(|e| JavaLocatorError::new(format!("Failed to run command `which` ({e})")))?;
     let java_exec_path = std::str::from_utf8(&output.stdout)?.trim();
 
-    if java_exec_path.is_empty() {
-        return Err(JavaLocatorError::new(
-            "Java is not installed or not in the system PATH".into(),
-        ));
-    }
-
+    java_exec_path_validation(java_exec_path)?;
     let mut home_path = follow_symlinks(java_exec_path);
 
     // Here we should have found ourselves in a directory like /usr/lib/jvm/java-8-oracle/jre/bin/java
@@ -211,7 +202,16 @@ fn do_locate_java_home() -> Result<String> {
         .map_err(|path| JavaLocatorError::new(format!("Java path {path:?} is invalid utf8")))
 }
 
-// Its not clear to me which systems need this so for now its run on all systems.
+fn java_exec_path_validation(path: &str) -> Result<()> {
+    if path.is_empty() {
+        return Err(JavaLocatorError::new(
+            "Java is not installed or not in the system PATH".into(),
+        ));
+    }
+
+    Ok(())
+}
+
 fn follow_symlinks(path: &str) -> PathBuf {
     let mut test_path = PathBuf::from(path);
     while let Ok(path) = test_path.read_link() {
