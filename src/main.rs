@@ -13,9 +13,7 @@
 // limitations under the License.
 use docopt::Docopt;
 
-use java_locator;
-
-const USAGE: &'static str = "
+const USAGE: &str = "
 java-locator locates the active Java installation in the host.
 
 Usage:

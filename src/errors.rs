@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::{fmt, result, string};
 use std::error::Error;
+use std::{fmt, result};
 
 use glob;
 
@@ -20,14 +20,12 @@ pub type Result<T> = result::Result<T, JavaLocatorError>;
 
 #[derive(Debug)]
 pub struct JavaLocatorError {
-    description: String
+    description: String,
 }
 
 impl JavaLocatorError {
-    pub(crate) fn new(description: &str) -> JavaLocatorError {
-        JavaLocatorError {
-            description: description.to_string(),
-        }
+    pub(crate) fn new(description: String) -> JavaLocatorError {
+        JavaLocatorError { description }
     }
 }
 
@@ -45,18 +43,24 @@ impl Error for JavaLocatorError {
 
 impl From<std::io::Error> for JavaLocatorError {
     fn from(err: std::io::Error) -> JavaLocatorError {
-        JavaLocatorError { description: format!("{:?}", err) }
+        JavaLocatorError {
+            description: format!("{:?}", err),
+        }
     }
 }
 
-impl From<string::FromUtf8Error> for JavaLocatorError {
-    fn from(err: string::FromUtf8Error) -> JavaLocatorError {
-        JavaLocatorError { description: format!("{:?}", err) }
+impl From<std::str::Utf8Error> for JavaLocatorError {
+    fn from(err: std::str::Utf8Error) -> JavaLocatorError {
+        JavaLocatorError {
+            description: format!("{:?}", err),
+        }
     }
 }
 
 impl From<glob::PatternError> for JavaLocatorError {
     fn from(err: glob::PatternError) -> JavaLocatorError {
-        JavaLocatorError { description: format!("{:?}", err) }
+        JavaLocatorError {
+            description: format!("{:?}", err),
+        }
     }
 }
