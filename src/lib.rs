@@ -291,6 +291,9 @@ mod unit_tests {
     #[test]
     fn jni_headers_test() {
         let java_home = do_locate_java_home().unwrap();
-        assert!(PathBuf::from(java_home).join("include").join("jni.h").exists());
+        assert!(PathBuf::from(java_home)
+            .join("include")
+            .join("jni.h")
+            .exists());
     }
 }
