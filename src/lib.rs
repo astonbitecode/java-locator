@@ -195,7 +195,17 @@ fn do_locate_java_home() -> Result<String> {
     // Here we should have found ourselves in a directory like /usr/lib/jvm/java-8-oracle/jre/bin/java
     home_path.pop();
     home_path.pop();
-    home_path.pop();
+
+    // Java 8(aka 1.8) has a slightly different directory structure,
+    // where java is in the ${JAVA_HOME}/jre/bin/java directory, and ${JAVA_HOME}/bin/java is just a symlink.
+    // Since we recursively follow symlinks, we end up in the wrong directory,
+    // so we need to pop one more time.
+    #[cfg(feature = "legacy-java-compat")]
+    if let Some(last_section) = home_path.file_name() {
+        if last_section == "jre" {
+            home_path.pop();
+        }
+    }
 
     home_path
         .into_os_string()
