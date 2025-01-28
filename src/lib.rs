@@ -195,6 +195,7 @@ fn do_locate_java_home() -> Result<String> {
     // Here we should have found ourselves in a directory like /usr/lib/jvm/java-8-oracle/jre/bin/java
     home_path.pop();
     home_path.pop();
+    home_path.pop();
 
     home_path
         .into_os_string()
@@ -275,5 +276,11 @@ mod unit_tests {
     #[test]
     fn locate_java_from_exec_test() {
         println!("do_locate_java_home: {}", do_locate_java_home().unwrap());
+    }
+
+    #[test]
+    fn jni_headers_test() {
+        let java_home = do_locate_java_home().unwrap();
+        assert!(PathBuf::from(java_home).join("include").join("jni.h").exists());
     }
 }
