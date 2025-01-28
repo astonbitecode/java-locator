@@ -40,4 +40,4 @@ jobs:
           java-version: '8'
           distribution: 'temurin'
       - name: Test Rust with Cargo
-        run: JAVAM_HOME="" cargo test --features=legacy-java-compat --verbose -- --nocapture
+        run: JAVA_HOME="" cargo test --features=legacy-java-compat --verbose -- --nocapture
