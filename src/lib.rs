@@ -78,12 +78,19 @@ The latter two commands should return something like:
 
 > /usr/lib/jvm/java-11-openjdk-amd64/lib
 
+## Extra Features
+
+* `locate-jdk-only`: Attempts to locate the JDK by searching for the Java compiler,
+    as opposed to searching for the runtime.
+    This solves issues in JDK 8 where the JRE resides in a subdirectory and not in the JDK root,
+    so development files are not found in JAVA_HOME as would be expected.
+
 ## License
 
 At your option, under:
 
-* Apache License, Version 2.0, (http://www.apache.org/licenses/LICENSE-2.0)
-* MIT license (http://opensource.org/licenses/MIT)
+* Apache License, Version 2.0, (<http://www.apache.org/licenses/LICENSE-2.0>)
+* MIT license (<http://opensource.org/licenses/MIT>)
 
  */
 
@@ -95,6 +102,11 @@ use errors::{JavaLocatorError, Result};
 use glob::{glob, Pattern};
 
 pub mod errors;
+
+#[cfg(not(feature = "locate-jdk-only"))]
+const LOCATE_BINARY: &str = "java";
+#[cfg(feature = "locate-jdk-only")]
+const LOCATE_BINARY: &str = "javac";
 
 /// Returns the name of the jvm dynamic library:
 ///
@@ -129,7 +141,7 @@ pub fn locate_java_home() -> Result<String> {
 #[cfg(target_os = "windows")]
 fn do_locate_java_home() -> Result<String> {
     let output = Command::new("where")
-        .arg("java")
+        .arg(LOCATE_BINARY)
         .output()
         .map_err(|e| JavaLocatorError::new(format!("Failed to run command `where` ({e})")))?;
 
@@ -184,7 +196,7 @@ fn do_locate_java_home() -> Result<String> {
 #[cfg(not(any(target_os = "windows", target_os = "macos")))] // Unix
 fn do_locate_java_home() -> Result<String> {
     let output = Command::new("which")
-        .arg("java")
+        .arg(LOCATE_BINARY)
         .output()
         .map_err(|e| JavaLocatorError::new(format!("Failed to run command `which` ({e})")))?;
     let java_exec_path = std::str::from_utf8(&output.stdout)?.trim();
@@ -275,5 +287,14 @@ mod unit_tests {
     #[test]
     fn locate_java_from_exec_test() {
         println!("do_locate_java_home: {}", do_locate_java_home().unwrap());
+    }
+
+    #[test]
+    fn jni_headers_test() {
+        let java_home = do_locate_java_home().unwrap();
+        assert!(PathBuf::from(java_home)
+            .join("include")
+            .join("jni.h")
+            .exists());
     }
 }
