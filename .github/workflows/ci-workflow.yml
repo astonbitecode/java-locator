@@ -29,9 +29,9 @@ jobs:
       - name: Test Rust with Cargo
         run: cargo test --verbose -- --nocapture
 
-  test-legacy:
+  # This is a good test for the locate-jdk-only feature, as the JRE is in a different path on JDK 8
+  test-locate-jdk:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 8
@@ -40,4 +40,4 @@ jobs:
           java-version: '8'
           distribution: 'temurin'
       - name: Test Rust with Cargo
-        run: JAVA_HOME="" cargo test --features=legacy-java-compat --verbose -- --nocapture
+        run: JAVA_HOME="" cargo test --features=locate-jdk-only --verbose -- --nocapture

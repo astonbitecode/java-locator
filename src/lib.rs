@@ -78,12 +78,18 @@ The latter two commands should return something like:
 
 > /usr/lib/jvm/java-11-openjdk-amd64/lib
 
+## Extra Features
+
+* `locate-jdk-only`: Attempts to locate the JDK first by searching for the Java compiler. \
+If this fails, it falls back to locating the JRE by searching for the Java runtime.
+This solves issues in JDK 8 where the JRE resides in a subdirectory and not in the JDK root.
+
 ## License
 
 At your option, under:
 
-* Apache License, Version 2.0, (http://www.apache.org/licenses/LICENSE-2.0)
-* MIT license (http://opensource.org/licenses/MIT)
+* Apache License, Version 2.0, (<http://www.apache.org/licenses/LICENSE-2.0>)
+* MIT license (<http://opensource.org/licenses/MIT>)
 
  */
 
@@ -95,6 +101,9 @@ use errors::{JavaLocatorError, Result};
 use glob::{glob, Pattern};
 
 pub mod errors;
+
+const JAVA_BINARY: &str = "java";
+const JAVAC_BINARY: &str = "javac";
 
 /// Returns the name of the jvm dynamic library:
 ///
@@ -120,16 +129,26 @@ pub fn get_jvm_dyn_lib_file_name() -> &'static str {
 /// If `JAVA_HOME` is not defined, the function tries to locate it using the `java` executable.
 pub fn locate_java_home() -> Result<String> {
     match &env::var("JAVA_HOME") {
-        Ok(s) if s.is_empty() => do_locate_java_home(),
+        Ok(s) if s.is_empty() => locate_java_home_with_fallback(),
         Ok(java_home_env_var) => Ok(java_home_env_var.clone()),
-        Err(_) => do_locate_java_home(),
+        Err(_) => locate_java_home_with_fallback(),
+    }
+}
+
+fn locate_java_home_with_fallback() -> Result<String> {
+    if cfg!(feature = "locate-jdk-only") {
+        // Try locating the JDK first by searching for the Java compiler
+        // If this fails, fallback to locating the JRE, by locating the Java runtime
+        do_locate_java_home(JAVAC_BINARY).or_else(|_| do_locate_java_home(JAVA_BINARY))
+    } else {
+        do_locate_java_home(JAVA_BINARY)
     }
 }
 
 #[cfg(target_os = "windows")]
-fn do_locate_java_home() -> Result<String> {
+fn do_locate_java_home(binary: &str) -> Result<String> {
     let output = Command::new("where")
-        .arg("java")
+        .arg(binary)
         .output()
         .map_err(|e| JavaLocatorError::new(format!("Failed to run command `where` ({e})")))?;
 
@@ -182,9 +201,9 @@ fn do_locate_java_home() -> Result<String> {
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "macos")))] // Unix
-fn do_locate_java_home() -> Result<String> {
+fn do_locate_java_home(binary: &str) -> Result<String> {
     let output = Command::new("which")
-        .arg("java")
+        .arg(binary)
         .output()
         .map_err(|e| JavaLocatorError::new(format!("Failed to run command `which` ({e})")))?;
     let java_exec_path = std::str::from_utf8(&output.stdout)?.trim();
@@ -195,17 +214,6 @@ fn do_locate_java_home() -> Result<String> {
     // Here we should have found ourselves in a directory like /usr/lib/jvm/java-8-oracle/jre/bin/java
     home_path.pop();
     home_path.pop();
-
-    // Java 8(aka 1.8) has a slightly different directory structure,
-    // where java is in the ${JAVA_HOME}/jre/bin/java directory, and ${JAVA_HOME}/bin/java is just a symlink.
-    // Since we recursively follow symlinks, we end up in the wrong directory,
-    // so we need to pop one more time.
-    #[cfg(feature = "legacy-java-compat")]
-    if let Some(last_section) = home_path.file_name() {
-        if last_section == "jre" {
-            home_path.pop();
-        }
-    }
 
     home_path
         .into_os_string()
@@ -285,12 +293,19 @@ mod unit_tests {
 
     #[test]
     fn locate_java_from_exec_test() {
-        println!("do_locate_java_home: {}", do_locate_java_home().unwrap());
+        println!(
+            "do_locate_java_home: {}",
+            do_locate_java_home(JAVA_BINARY).unwrap()
+        );
+        println!(
+            "do_locate_java_home: {}",
+            do_locate_java_home(JAVAC_BINARY).unwrap()
+        );
     }
 
     #[test]
     fn jni_headers_test() {
-        let java_home = do_locate_java_home().unwrap();
+        let java_home = locate_java_home_with_fallback().unwrap();
         assert!(PathBuf::from(java_home)
             .join("include")
             .join("jni.h")
