@@ -80,9 +80,10 @@ The latter two commands should return something like:
 
 ## Extra Features
 
-* `locate-jdk-only`: Attempts to locate the JDK first by searching for the Java compiler. \
-If this fails, it falls back to locating the JRE by searching for the Java runtime.
-This solves issues in JDK 8 where the JRE resides in a subdirectory and not in the JDK root.
+* `locate-jdk-only`: Attempts to locate the JDK by searching for the Java compiler,
+    as opposed to searching for the runtime.
+    This solves issues in JDK 8 where the JRE resides in a subdirectory and not in the JDK root,
+    so development files are not found in JAVA_HOME as would be expected.
 
 ## License
 
@@ -102,8 +103,10 @@ use glob::{glob, Pattern};
 
 pub mod errors;
 
-const JAVA_BINARY: &str = "java";
-const JAVAC_BINARY: &str = "javac";
+#[cfg(not(feature = "locate-jdk-only"))]
+const LOCATE_BINARY: &str = "java";
+#[cfg(feature = "locate-jdk-only")]
+const LOCATE_BINARY: &str = "javac";
 
 /// Returns the name of the jvm dynamic library:
 ///
@@ -129,26 +132,16 @@ pub fn get_jvm_dyn_lib_file_name() -> &'static str {
 /// If `JAVA_HOME` is not defined, the function tries to locate it using the `java` executable.
 pub fn locate_java_home() -> Result<String> {
     match &env::var("JAVA_HOME") {
-        Ok(s) if s.is_empty() => locate_java_home_with_fallback(),
+        Ok(s) if s.is_empty() => do_locate_java_home(),
         Ok(java_home_env_var) => Ok(java_home_env_var.clone()),
-        Err(_) => locate_java_home_with_fallback(),
-    }
-}
-
-fn locate_java_home_with_fallback() -> Result<String> {
-    if cfg!(feature = "locate-jdk-only") {
-        // Try locating the JDK first by searching for the Java compiler
-        // If this fails, fallback to locating the JRE, by locating the Java runtime
-        do_locate_java_home(JAVAC_BINARY).or_else(|_| do_locate_java_home(JAVA_BINARY))
-    } else {
-        do_locate_java_home(JAVA_BINARY)
+        Err(_) => do_locate_java_home(),
     }
 }
 
 #[cfg(target_os = "windows")]
-fn do_locate_java_home(binary: &str) -> Result<String> {
+fn do_locate_java_home() -> Result<String> {
     let output = Command::new("where")
-        .arg(binary)
+        .arg(LOCATE_BINARY)
         .output()
         .map_err(|e| JavaLocatorError::new(format!("Failed to run command `where` ({e})")))?;
 
@@ -201,9 +194,9 @@ fn do_locate_java_home() -> Result<String> {
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "macos")))] // Unix
-fn do_locate_java_home(binary: &str) -> Result<String> {
+fn do_locate_java_home() -> Result<String> {
     let output = Command::new("which")
-        .arg(binary)
+        .arg(LOCATE_BINARY)
         .output()
         .map_err(|e| JavaLocatorError::new(format!("Failed to run command `which` ({e})")))?;
     let java_exec_path = std::str::from_utf8(&output.stdout)?.trim();
@@ -293,19 +286,12 @@ mod unit_tests {
 
     #[test]
     fn locate_java_from_exec_test() {
-        println!(
-            "do_locate_java_home: {}",
-            do_locate_java_home(JAVA_BINARY).unwrap()
-        );
-        println!(
-            "do_locate_java_home: {}",
-            do_locate_java_home(JAVAC_BINARY).unwrap()
-        );
+        println!("do_locate_java_home: {}", do_locate_java_home().unwrap());
     }
 
     #[test]
     fn jni_headers_test() {
-        let java_home = locate_java_home_with_fallback().unwrap();
+        let java_home = do_locate_java_home().unwrap();
         assert!(PathBuf::from(java_home)
             .join("include")
             .join("jni.h")
