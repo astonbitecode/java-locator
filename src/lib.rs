@@ -78,12 +78,17 @@ The latter two commands should return something like:
 
 > /usr/lib/jvm/java-11-openjdk-amd64/lib
 
-## Extra Features
+## Available Features
 
-* `locate-jdk-only`: Attempts to locate the JDK by searching for the Java compiler,
-    as opposed to searching for the runtime.
-    This solves issues in JDK 8 where the JRE resides in a subdirectory and not in the JDK root,
-    so development files are not found in JAVA_HOME as would be expected.
+* `build-binary`: Generates a `java-locator` executable
+* `locate-jdk-only`: Instructs `java-locator` to locate __only JDKs__.
+
+    In a system that has only JREs installed, `java-locator` will not find any Java installation if this feature is enabled.
+
+    This feature also solves issues when using JDK 8:  In usual installations, the symlinks of the `java` executable in the `$PATH`
+    lead to the `jre` directory that lies inside the JDK 8. When `$JAVA_HOME` is not defined in the system, `java-locator` attempts to locate the
+    Java installation following the symlinks of the `java` executable. Having done that, it cannot locate development artifacts like `jni.h` headers,
+    `javac` etc. With this feature enabled though, `java-locator` will locate development artifacts normally.
 
 ## License
 
