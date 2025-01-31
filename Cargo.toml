@@ -1,6 +1,6 @@
 [package]
 name = "java-locator"
-version = "0.1.9"
+version = "0.1.10"
 authors = ["aston <astonbitecode@gmail.com>"]
 description = "Locates a Java installation in the host."
 keywords = ["java", "jni"]
